@@ -1,0 +1,89 @@
+version: 2.1
+
+orbs:
+ android: circleci/android@0.2.1
+
+references:
+ cache_key: &cache_key
+   key: jars-{{ checksum "android/build.gradle" }}-{{ checksum  "android/app/build.gradle" }}-{{ checksum "android/gradle/wrapper/gradle-wrapper.properties" }}
+
+config_android: &config_android
+ working_directory: ~/android
+ docker:
+   - image: circleci/android:api-30
+
+ environment:
+   JVM_OPTS: -Xmx3200m
+
+build_test: &build_test
+ <<: *config_android
+ steps:
+   - checkout
+   - run:
+        name: Create keystore.jks
+        command: |
+          keytool -genkey -alias replserver \
+            -keyalg RSA -keystore keystore.jks \
+            -dname "CN=Owen H, OU=Outsourse, O=Skg, L=HCM, S=VN, C=VN" \
+            -storepass password -keypass password 
+   - run:
+        name: Create keystore.properties
+        command: printf 'releaseKeyAlias=%s\nreleaseKeyPassword=%s\nreleaseKeyStore=%s\nreleaseStorePassword=%s' $RELEASE_KEY_ALIAS $RELEASE_KEY_PASSWORD $RELEASE_KEY_STORE $RELEASE_KEY_PASSWORD > keystore.properties
+   - run: 
+        command: console.log(__dirname)
+   - run: git submodule sync
+   - run: git submodule update --init
+   - restore_cache:
+        key: jars-{{ checksum "build.gradle" }}-{{ checksum  "app/build.gradle" }}-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}
+   - run:
+        name: Download Dependencies
+        command: ./gradlew androidDependencies
+   - run:
+        name: Run UnitTest
+        command: ./gradlew test
+   - save_cache:
+       key: jars-{{ checksum "build.gradle" }}-{{ checksum  "app/build.gradle" }}-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}
+       paths:
+         - ~/.gradle/caches
+         - ~/.gradle/wrapper
+   - run:
+       name: Initial build
+       command: ./gradlew clean assembleRelease --no-daemon --stacktrace
+   - run:
+       name: Build app
+       command: ./gradlew build
+
+deploy_debug_to_firebase: &deploy_debug_to_firebase
+ <<: *config_android
+ shell: /bin/bash --login -o pipefail
+ steps:
+   - checkout
+   - run:
+        name: Build debug
+        command: ./gradlew :app:assembleDebug
+   - run:
+        name: Install Firebase CLI
+        command: |
+         curl -sL https://firebase.tools | bash
+   - run:
+        name: Upload File APK Debug to Firebase App Distribution
+        command: firebase appdistribution:distribute app/build/outputs/apk/debug/app-debug.apk --app $FIREBASE_APP_ID --token $FIREBASE_TOKEN_CLI --release-notes "Upload APK to Firebase"
+
+jobs:
+ build_test:
+   <<: *build_test
+
+ deploy_debug_to_firebase:
+   <<: *deploy_debug_to_firebase
+
+workflows:
+ version: 2
+ build_test_and_deploy:
+   jobs:
+     - build_test
+     - deploy_debug_to_firebase:
+         requires:
+           - build_test
+         filters:
+           branches:
+             only: test
