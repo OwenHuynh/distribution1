@@ -9,6 +9,15 @@ version: 2.1
 orbs:
   android: circleci/android@1.0.3
 
+config_android: &config_android
+ working_directory: ~/android
+ docker:
+   - image: circleci/android:api-30
+
+ environment:
+   JVM_OPTS: -Xmx3200m
+
+
 # Define a job to be invoked later in a workflow.
 # See: https://circleci.com/docs/2.0/configuration-reference/#jobs
 jobs:
