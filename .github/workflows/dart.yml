@@ -1,0 +1,92 @@
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+
+name: Dart
+
+on:
+  push:
+    branches: [ test ]
+  pull_request:
+    branches: [ test ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      # Note: This workflow uses the latest stable version of the Dart SDK.
+      # You can specify other versions if desired, see documentation here:
+      # https://github.com/dart-lang/setup-dart/blob/main/README.md
+      # - uses: dart-lang/setup-dart@v1
+      - uses: dart-lang/setup-dart@9a04e6d73cca37bd455e0608d7e5092f881fd603
+
+      - uses: subosito/flutter-action@v1
+        with:
+          channel: "stable"
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # Uncomment this step to verify the use of 'dart format' on each commit.
+      # - name: Verify formatting
+      #   run: dart format --output=none --set-exit-if-changed .
+
+      # Consider passing '--fatal-infos' for slightly stricter analysis.
+      - name: Analyze project source
+        run: flutter analyze
+
+      # Your project will need to have tests in test/ and a dependency on
+      # package:test for this step to succeed. Note that Flutter projects will
+      # want to change this to 'flutter test'.
+      # - name: Run tests
+      #   run: flutter test
+
+      # - name: android/run-tests
+      #   run: cd android; gradle lint testDebug --continue
+      - name: Cache Gradle packages
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: $jars-{{ checksum "build.gradle" }}-{{ checksum  "app/build.gradle" }}-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}
+
+      - name: Create keystore.jks
+        run: |
+          keytool -genkey -alias replserver \
+            -keyalg RSA -keystore keystore.jks \
+            -dname "CN=Mark Smith, OU=JavaSoft, O=Sun, L=Cupertino, S=California, C=US" \
+            -storepass password -keypass password 
+            
+      - name: Create keystore.properties
+        run: printf 'releaseKeyAlias=%s\nreleaseKeyPassword=%s\nreleaseKeyStore=%s\nreleaseStorePassword=%s' $RELEASE_KEY_ALIAS $RELEASE_KEY_PASSWORD $RELEASE_KEY_STORE $RELEASE_KEY_PASSWORD > keystore.properties
+
+      - name: Download Dependencies
+        run: cd android; gradle androidDependencies
+
+      - name: Assemble release build
+        run: cd android; gradle assembleRelease
+
+      - name: Build app
+        run: cd android; gradle build
+
+      - name: Build debug
+        run: cd android; gradle :app:assembleDebug
+
+      - name: Install Firebase CLI
+        run: |
+            sudo npm install -g firebase-tools
+            firebase deploy --token ${{ secrets.FIREBASE_TOKEN }}
+
+       # curl -sL https://firebase.tools | bash
+       # firebase init
+       # firebase login:ci --interactive
+
+      - name: Upload File APK Debug to Firebase App Distribution
+        run: firebase appdistribution:distribute app/build/outputs/apk/debug/app-debug.apk --app '1:868607403337:android:e92e92dd6d95a51f28e698' --token $FIREBASE_TOKEN_CLI --release-notes "Upload APK to Firebase"
+
+

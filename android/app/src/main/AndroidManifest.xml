@@ -2,7 +2,7 @@
     package="com.human_dc.flutter_fm">
    <application
         android:label="flutter_fm"
-        android:name="${applicationName}"
+        android:name="flutter_fm"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"
