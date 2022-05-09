@@ -77,10 +77,10 @@ jobs:
       - name: Build debug
         run: cd android; gradle :app:assembleDebug
 
-      - name: Install Firebase CLI
-        run: |
-            sudo npm install -g firebase-tools
-            firebase deploy --token ${{ secrets.FIREBASE_TOKEN }}
+      # - name: Install Firebase CLI
+      #  run: |
+      #     sudo npm install -g firebase-tools
+      #    firebase deploy --token ${{ secrets.FIREBASE_TOKEN }}
 
        # curl -sL https://firebase.tools | bash
        # firebase init
