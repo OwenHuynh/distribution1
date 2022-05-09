@@ -87,6 +87,6 @@ jobs:
        # firebase login:ci --interactive
 
       - name: Upload File APK Debug to Firebase App Distribution
-        run: firebase appdistribution:distribute app/build/outputs/apk/debug/app-debug.apk --app ${{serets.FIREBASE_ID }} --release-notes "Upload APK to Firebase"
+        run: firebase appdistribution:distribute app/build/outputs/apk/debug/app-debug.apk --app ${{secrets.FIREBASE_ID }} --release-notes "Upload APK to Firebase"
 
 # --token ${{ secrets.FIREBASE_TOKEN}}
